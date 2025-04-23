@@ -1,0 +1,141 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Crypto Price Chart</title>
+  <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+  <style>
+    body {
+      font-family: Arial, sans-serif;
+      text-align: center;
+      background-color: #f4f7fc;
+      padding: 20px;
+    }
+
+    #controls {
+      margin-bottom: 20px;
+    }
+
+    #chart-container {
+      margin-top: 20px;
+    }
+
+    #prediction {
+      margin-top: 20px;
+      font-size: 1.2em;
+    }
+
+    h2 {
+      font-size: 1.8em;
+      margin-bottom: 20px;
+    }
+  </style>
+</head>
+<body>
+  <h2>Crypto Price - Last 7 Days (USD)</h2>
+  <div id="controls">
+    <label for="cryptoSelect">Choose Cryptocurrency:</label>
+    <select id="cryptoSelect"></select>
+  </div>
+  <div id="chart-container">
+    <canvas id="cryptoChart"></canvas>
+  </div>
+  <div id="prediction"></div>
+
+  <script>
+    let chartInstance = null;
+
+    const commonCoins = [
+      'bitcoin', 'ethereum', 'tether', 'bnb', 'solana', 'ripple', 'usd-coin',
+      'cardano', 'dogecoin', 'avalanche-2', 'tron', 'polkadot', 'chainlink',
+      'polygon', 'litecoin', 'shiba-inu', 'internet-computer', 'uniswap', 'stellar',
+      'bitcoin-cash', 'aptos', 'filecoin', 'vechain', 'arbitrum', 'the-graph'
+    ];
+
+    async function fetchCoinList() {
+      const response = await fetch('https://api.coingecko.com/api/v3/coins/list');
+      const coins = await response.json();
+      const select = document.getElementById('cryptoSelect');
+
+      const filteredCoins = coins.filter(coin => commonCoins.includes(coin.id));
+
+      filteredCoins.forEach(coin => {
+        const option = document.createElement('option');
+        option.value = coin.id;
+        option.textContent = coin.name;
+        select.appendChild(option);
+      });
+
+      // Set a default coin for initial chart loading
+      select.value = filteredCoins[0].id;
+      drawChart(filteredCoins[0].id);
+    }
+
+    async function fetchCryptoData(coinId) {
+      const response = await fetch(`https://api.coingecko.com/api/v3/coins/${coinId}/market_chart?vs_currency=usd&days=7`);
+      const data = await response.json();
+      return data.prices.map(price => ({
+        time: new Date(price[0]).toLocaleDateString(),
+        value: price[1]
+      }));
+    }
+
+    function calculatePrediction(prices) {
+      const first = prices[0].value;
+      const last = prices[prices.length - 1].value;
+      const change = ((last - first) / first) * 100;
+
+      if (change > 0) {
+        return `📈 Prediksi: Harga naik sekitar ${change.toFixed(2)}% dalam 7 hari terakhir.`;
+      } else if (change < 0) {
+        return `📉 Prediksi: Harga turun sekitar ${Math.abs(change).toFixed(2)}% dalam 7 hari terakhir.`;
+      } else {
+        return `Harga relatif stabil dalam 7 hari terakhir.`;
+      }
+    }
+
+    async function drawChart(coinId) {
+      const prices = await fetchCryptoData(coinId);
+      const ctx = document.getElementById('cryptoChart').getContext('2d');
+
+      if (chartInstance) {
+        chartInstance.destroy();
+      }
+
+      chartInstance = new Chart(ctx, {
+        type: 'line',
+        data: {
+          labels: prices.map(p => p.time),
+          datasets: [{
+            label: `${coinId.charAt(0).toUpperCase() + coinId.slice(1)} to USD`,
+            data: prices.map(p => p.value),
+            borderColor: 'rgba(75, 192, 192, 1)',
+            fill: false,
+            tension: 0.1
+          }]
+        },
+        options: {
+          responsive: true,
+          scales: {
+            y: {
+              beginAtZero: false
+            }
+          }
+        }
+      });
+
+      // Tampilkan prediksi di bawah chart
+      document.getElementById('prediction').textContent = calculatePrediction(prices);
+    }
+
+    document.getElementById('cryptoSelect').addEventListener('change', (e) => {
+      drawChart(e.target.value);
+    });
+
+    window.onload = async () => {
+      await fetchCoinList();
+    };
+  </script>
+</body>
+</html>
